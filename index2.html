@@ -1,0 +1,2142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DevOpsBoard</title>
+    <!-- Inter font from Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Chart.js for charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Basic Reset & Variables */
+        :root {
+            --bg-color-dark: #1a1a2e;
+            --bg-color-light: #f0f2f5;
+            --text-color-dark: #e0e0e0;
+            --text-color-light: #333;
+            --card-bg-dark: #2c2c44;
+            --card-bg-light: #ffffff;
+            --border-color-dark: #3a3a5a;
+            --border-color-light: #e0e0e0;
+            --primary-color: #0f4c75; /* Blue */
+            --accent-color: #e6b31e; /* Yellow */
+            --success-color: #28a745; /* Green */
+            --warning-color: #ffc107; /* Orange */
+            --danger-color: #dc3545; /* Red */
+            --info-color: #17a2b8; /* Cyan */
+            --log-bg-dark: #000000;
+            --log-text-dark: #00ff00; /* Green for logs */
+            --log-bg-light: #e9ecef;
+            --log-text-light: #495057;
+
+            --current-bg: var(--bg-color-dark);
+            --current-text: var(--text-color-dark);
+            --current-card-bg: var(--card-bg-dark);
+            --current-border: var(--border-color-dark);
+            --current-log-bg: var(--log-bg-dark);
+            --current-log-text: var(--log-text-dark);
+        }
+
+        /* Light Mode Specific Variables */
+        body.light-mode {
+            --current-bg: var(--bg-color-light);
+            --current-text: var(--text-color-light);
+            --current-card-bg: var(--card-bg-light);
+            --current-border: var(--border-color-light);
+            --current-log-bg: var(--log-bg-light);
+            --current-log-text: var(--log-text-light);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--current-bg);
+            color: var(--current-text);
+            transition: background-color 0.3s ease, color 0.3s ease;
+            display: flex;
+            flex-direction: column; /* Ensure body itself is a flex container for full height */
+            min-height: 100vh;
+            overflow-x: hidden; /* Prevent horizontal scroll */
+        }
+
+        /* Layout */
+        .dashboard-container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            flex-grow: 1; /* Allow container to grow and fill available space */
+        }
+
+        .header {
+            background-color: var(--current-card-bg);
+            padding: 1rem 2rem;
+            border-bottom: 1px solid var(--current-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+            flex-wrap: wrap; /* Allow items to wrap on smaller screens */
+            gap: 1rem; /* Spacing between header elements */
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            color: var(--accent-color);
+            flex-shrink: 0; /* Prevent shrinking */
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap; /* Allow actions to wrap */
+            justify-content: flex-end; /* Align to the right */
+        }
+
+        .header .mode-toggle button {
+            background: none;
+            border: 1px solid var(--current-border);
+            color: var(--current-text);
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+        }
+
+        .header .mode-toggle button:hover {
+            background-color: var(--primary-color);
+            color: #fff;
+        }
+
+        .alert-bell {
+            position: relative;
+            cursor: pointer;
+            color: var(--current-text);
+            font-size: 1.5rem;
+            transition: color 0.3s ease;
+        }
+
+        .alert-bell.active {
+            color: var(--danger-color);
+            animation: bell-ring 1s ease-in-out infinite;
+        }
+
+        @keyframes bell-ring {
+            0% { transform: rotate(0deg); }
+            15% { transform: rotate(15deg); }
+            30% { transform: rotate(-15deg); }
+            45% { transform: rotate(10deg); }
+            60% { transform: rotate(-10deg); }
+            75% { transform: rotate(5deg); }
+            100% { transform: rotate(0deg); }
+        }
+
+        .main-content {
+            display: flex;
+            flex-grow: 1;
+            flex-direction: row; /* Default desktop layout */
+        }
+
+        .sidebar {
+            background-color: var(--current-card-bg);
+            width: 250px;
+            padding: 1.5rem;
+            border-right: 1px solid var(--current-border);
+            box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            flex-shrink: 0;
+            overflow-y: auto; /* Enable scrolling for long sidebars */
+        }
+
+        .sidebar h3 {
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+            font-size: 1.2rem;
+        }
+
+        .sidebar nav ul {
+            list-style: none;
+        }
+
+        .sidebar nav ul li {
+            margin-bottom: 0.7rem;
+        }
+
+        .sidebar nav ul li a {
+            color: var(--current-text);
+            text-decoration: none;
+            padding: 0.5rem 0.8rem;
+            display: block;
+            border-radius: 5px;
+            transition: background-color 0.2s ease, color 0.2s ease;
+        }
+
+        .sidebar nav ul li a:hover,
+        .sidebar nav ul li a.active {
+            background-color: var(--primary-color);
+            color: #fff;
+        }
+
+        .dashboard-grid {
+            flex-grow: 1;
+            padding: 2rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* Responsive grid */
+            gap: 1.5rem;
+            align-content: start; /* Align items to the start of the grid */
+        }
+
+        /* Card Styles */
+        .card {
+            background-color: var(--current-card-bg);
+            border: 1px solid var(--current-border);
+            border-radius: 10px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+            cursor: grab; /* For drag and drop */
+        }
+
+        .card.dragging {
+            opacity: 0.5;
+            border: 2px dashed var(--primary-color);
+        }
+
+        .card h2 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            color: var(--primary-color);
+        }
+
+        /* CI/CD Pipeline Monitor */
+        .pipeline-monitor .pipeline-group {
+            margin-bottom: 1.5rem;
+            border-bottom: 1px dashed var(--current-border);
+            padding-bottom: 1rem;
+        }
+        .pipeline-monitor .pipeline-group:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .pipeline-monitor h3 {
+            font-size: 1.1rem;
+            color: var(--accent-color);
+            margin-bottom: 0.8rem;
+        }
+
+        .pipeline-monitor .pipeline-stages {
+            display: flex;
+            justify-content: space-between;
+            gap: 0.5rem;
+            flex-wrap: wrap; /* Allow stages to wrap */
+        }
+
+        .pipeline-monitor .stage {
+            flex: 1;
+            min-width: 80px; /* Ensure stages don't get too small */
+            padding: 0.8rem;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 600;
+            background-color: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: background-color 0.3s ease, border-color 0.3s ease;
+            position: relative;
+            word-break: break-word; /* Break long words */
+        }
+
+        .pipeline-monitor .stage.in-progress {
+            background-color: var(--info-color);
+            color: #fff;
+            border-color: var(--info-color);
+            animation: pulse 1.5s infinite;
+        }
+
+        .pipeline-monitor .stage.successful {
+            background-color: var(--success-color);
+            color: #fff;
+            border-color: var(--success-color);
+        }
+
+        .pipeline-monitor .stage.failed {
+            background-color: var(--danger-color);
+            color: #fff;
+            border-color: var(--danger-color);
+            animation: shake 0.5s ease-in-out infinite alternate;
+        }
+
+        .pipeline-monitor .stage-tooltip {
+            position: absolute;
+            background-color: var(--current-card-bg);
+            border: 1px solid var(--current-border);
+            padding: 0.5rem;
+            border-radius: 5px;
+            font-size: 0.8rem;
+            white-space: nowrap;
+            z-index: 20;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-bottom: 5px;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+            pointer-events: none;
+        }
+
+        .pipeline-monitor .stage:hover .stage-tooltip {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.02); opacity: 0.9; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes shake {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            50% { transform: translateX(5px); }
+            75% { transform: translateX(-5px); }
+            100% { transform: translateX(0); }
+        }
+
+        /* Incident Alert Board */
+        .incident-alerts .alert-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+        }
+
+        .incident-alerts .alert-item {
+            padding: 0.8rem;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.95rem;
+            transition: opacity 0.5s ease-out, transform 0.2s ease;
+            cursor: pointer;
+            flex-wrap: wrap; /* Allow text to wrap */
+        }
+
+        .incident-alerts .alert-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .incident-alerts .alert-item.severity-low {
+            background-color: rgba(40, 167, 69, 0.2); /* Green */
+            border: 1px solid var(--success-color);
+            color: var(--success-color);
+        }
+
+        .incident-alerts .alert-item.severity-medium {
+            background-color: rgba(255, 193, 7, 0.2); /* Orange */
+            border: 1px solid var(--warning-color);
+            color: var(--warning-color);
+        }
+
+        .incident-alerts .alert-item.severity-high {
+            background-color: rgba(220, 53, 69, 0.2); /* Red */
+            border: 1px solid var(--danger-color);
+            color: var(--danger-color);
+        }
+
+        .incident-alerts .alert-filters {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap; /* Allow filters to wrap */
+        }
+
+        .incident-alerts .alert-filters button {
+            background-color: var(--primary-color);
+            color: #fff;
+            border: none;
+            padding: 0.4rem 0.8rem;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background-color 0.2s ease;
+        }
+
+        .incident-alerts .alert-filters button:hover {
+            background-color: #0c3a5c;
+        }
+
+        .incident-alerts .alert-filters button.active {
+            background-color: var(--accent-color);
+            color: var(--current-card-bg);
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.6);
+            display: flex; /* Use flex to center */
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: var(--current-card-bg);
+            margin: auto;
+            padding: 2rem;
+            border: 1px solid var(--current-border);
+            border-radius: 10px;
+            width: 90%; /* Make modal wider on smaller screens */
+            max-width: 600px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            position: relative;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .close-button {
+            color: var(--current-text);
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close-button:hover,
+        .close-button:focus {
+            color: var(--danger-color);
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .modal-content h3 {
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+            font-size: 1.8rem;
+        }
+
+        .modal-content p {
+            margin-bottom: 0.8rem;
+            line-height: 1.5;
+        }
+
+        /* Cloud Resource Overview */
+        .cloud-resources .chart-controls {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .cloud-resources .chart-controls button,
+        .cloud-resources .chart-controls select {
+            background-color: var(--primary-color);
+            color: #fff;
+            border: none;
+            padding: 0.4rem 0.8rem;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background-color 0.2s ease;
+            flex-grow: 1; /* Allow buttons/select to grow */
+            min-width: 100px; /* Minimum width for controls */
+        }
+        .cloud-resources .chart-controls button:hover,
+        .cloud-resources .chart-controls select:hover {
+            background-color: #0c3a5c;
+        }
+        .cloud-resources .chart-controls button.active {
+            background-color: var(--accent-color);
+            color: var(--current-card-bg);
+        }
+
+        .cloud-resources .cost-summary {
+            margin-top: 1rem;
+            text-align: center;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        .cloud-resources .cost-summary.over-budget {
+            color: var(--danger-color);
+            font-weight: bold;
+            animation: shake 0.5s ease-in-out infinite alternate;
+        }
+
+        /* Upcoming Deployments Calendar */
+        .deployment-calendar .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+            text-align: center;
+        }
+
+        .deployment-calendar .calendar-header {
+            grid-column: span 7;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            color: var(--primary-color);
+        }
+
+        .deployment-calendar .day-name {
+            font-weight: bold;
+            font-size: 0.9rem;
+            padding: 0.5rem 0;
+        }
+
+        .deployment-calendar .date-cell {
+            padding: 0.7rem 0.3rem;
+            border-radius: 5px;
+            background-color: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            cursor: pointer;
+            position: relative;
+            transition: background-color 0.2s ease;
+            font-size: 0.9rem;
+            min-height: 50px; /* Ensure cells have a minimum height */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .deployment-calendar .date-cell:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .deployment-calendar .date-cell.staging {
+            background-color: var(--info-color); /* Blue */
+            color: #fff;
+            font-weight: bold;
+        }
+        .deployment-calendar .date-cell.production {
+            background-color: var(--success-color); /* Green */
+            color: #fff;
+            font-weight: bold;
+        }
+        .deployment-calendar .date-cell.hotfix {
+            background-color: var(--danger-color); /* Red */
+            color: #fff;
+            font-weight: bold;
+        }
+
+        .deployment-calendar .deployment-tooltip {
+            position: absolute;
+            background-color: var(--current-card-bg);
+            border: 1px solid var(--current-border);
+            padding: 0.5rem;
+            border-radius: 5px;
+            font-size: 0.8rem;
+            white-space: nowrap;
+            z-index: 20;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-bottom: 5px;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+            pointer-events: none; /* Allows clicks to pass through */
+        }
+
+        .deployment-calendar .date-cell:hover .deployment-tooltip {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Metrics Cards */
+        .metrics-cards .metric-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.8rem 0;
+            border-bottom: 1px solid var(--current-border);
+            flex-wrap: wrap; /* Allow items to wrap */
+        }
+
+        .metrics-cards .metric-item:last-child {
+            border-bottom: none;
+        }
+
+        .metrics-cards .metric-label {
+            font-weight: 600;
+            flex-basis: 60%; /* Give label more space */
+        }
+
+        .metrics-cards .metric-value {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: var(--accent-color);
+            flex-basis: 35%; /* Give value less space */
+            text-align: right;
+        }
+        .metrics-cards .metric-value.good { color: var(--success-color); }
+        .metrics-cards .metric-value.warning { color: var(--warning-color); }
+        .metrics-cards .metric-value.bad { color: var(--danger-color); }
+
+
+        /* DevOps Tips & Tools Panel */
+        .devops-tips .tip-display {
+            background-color: rgba(255, 255, 255, 0.05);
+            padding: 1rem;
+            border-radius: 8px;
+            font-style: italic;
+            min-height: 80px; /* Ensure consistent height */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            transition: background-color 0.3s ease;
+        }
+
+        .devops-tips .tool-links {
+            margin-top: 1rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+            justify-content: center; /* Center tools */
+        }
+
+        .devops-tips .tool-links a {
+            background-color: var(--primary-color);
+            color: #fff;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: background-color 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            flex-grow: 1; /* Allow tools to grow */
+            justify-content: center; /* Center text and icon */
+            max-width: 150px; /* Limit max width for tools */
+        }
+
+        .devops-tips .tool-links a:hover {
+            background-color: #0c3a5c;
+        }
+
+        /* Terminal-style Log Feed */
+        .log-feed {
+            background-color: var(--current-log-bg);
+            color: var(--current-log-text);
+            font-family: 'Roboto Mono', monospace;
+            padding: 1rem;
+            border-radius: 8px;
+            height: 250px;
+            overflow-y: auto;
+            white-space: pre-wrap; /* Preserve whitespace and wrap text */
+            font-size: 0.9rem;
+            line-height: 1.4;
+            border: 1px solid var(--current-border);
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .log-feed::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .log-feed::-webkit-scrollbar-track {
+            background: var(--current-card-bg);
+            border-radius: 10px;
+        }
+
+        .log-feed::-webkit-scrollbar-thumb {
+            background: var(--primary-color);
+            border-radius: 10px;
+        }
+
+        .log-feed::-webkit-scrollbar-thumb:hover {
+            background: #0f4c75;
+        }
+
+        /* Team Activity Feed */
+        .activity-feed .activity-item {
+            padding: 0.6rem 0;
+            border-bottom: 1px dashed var(--current-border);
+            font-size: 0.9rem;
+            word-break: break-word; /* Ensure long activity messages wrap */
+        }
+        .activity-feed .activity-item:last-child {
+            border-bottom: none;
+        }
+        .activity-feed .activity-item strong {
+            color: var(--primary-color);
+        }
+
+        /* Knowledge Base Quick Links */
+        .knowledge-base .tag-filters {
+            margin-bottom: 1rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center; /* Center tag filters */
+        }
+        .knowledge-base .tag-filters button {
+            background-color: var(--primary-color);
+            color: #fff;
+            border: none;
+            padding: 0.3rem 0.7rem;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: background-color 0.2s ease;
+        }
+        .knowledge-base .tag-filters button:hover {
+            background-color: #0c3a5c;
+        }
+        .knowledge-base .tag-filters button.active {
+            background-color: var(--accent-color);
+            color: var(--current-card-bg);
+        }
+        .knowledge-base .link-list a {
+            display: block;
+            padding: 0.5rem 0;
+            color: var(--current-text);
+            text-decoration: none;
+            border-bottom: 1px dashed var(--current-border);
+            transition: color 0.2s ease;
+            word-break: break-word; /* Ensure long links wrap */
+        }
+        .knowledge-base .link-list a:hover {
+            color: var(--primary-color);
+        }
+        .knowledge-base .link-list a:last-child {
+            border-bottom: none;
+        }
+        .knowledge-base .link-list .tags {
+            font-size: 0.75rem;
+            color: #888;
+            margin-left: 5px;
+        }
+
+        /* Command Cheatsheet Panel */
+        .cheatsheet .accordion-item {
+            border: 1px solid var(--current-border);
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            overflow: hidden;
+        }
+        .cheatsheet .accordion-header {
+            background-color: rgba(255, 255, 255, 0.05);
+            padding: 0.8rem 1rem;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            transition: background-color 0.2s ease;
+        }
+        .cheatsheet .accordion-header:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        .cheatsheet .accordion-content {
+            padding: 1rem;
+            background-color: rgba(0, 0, 0, 0.1);
+            border-top: 1px solid var(--current-border);
+            display: none;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+        }
+        .cheatsheet .accordion-content.active {
+            display: block;
+            max-height: 200px; /* Adjust as needed, consider using a larger value like 500px or 'none' for full content */
+            /* For 'max-height: none' use a JS solution to calculate actual height */
+        }
+        .cheatsheet .accordion-content pre {
+            background-color: var(--current-log-bg);
+            color: var(--current-log-text);
+            padding: 0.8rem;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-family: 'Roboto Mono', monospace;
+            font-size: 0.85rem;
+        }
+
+        /* Test Coverage Snapshot */
+        .test-coverage .coverage-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 0.8rem;
+        }
+        .test-coverage .coverage-circle {
+            position: relative;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: conic-gradient(var(--primary-color) 0%, var(--primary-color) var(--percentage), var(--current-border) var(--percentage), var(--current-border) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.9rem;
+            color: var(--current-text);
+            flex-shrink: 0; /* Prevent shrinking */
+        }
+        .test-coverage .coverage-circle span {
+            z-index: 1;
+        }
+        .test-coverage .coverage-circle::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: var(--current-card-bg);
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+        }
+        .test-coverage .coverage-details {
+            flex-grow: 1;
+        }
+        .test-coverage .coverage-details .label {
+            font-weight: 600;
+        }
+        .test-coverage .coverage-details .change {
+            font-size: 0.85rem;
+            margin-left: 0.5rem;
+        }
+        .test-coverage .change.increase { color: var(--success-color); }
+        .test-coverage .change.decrease { color: var(--danger-color); }
+
+
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            .dashboard-grid {
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                padding: 1.5rem;
+            }
+            .header {
+                padding: 1rem 1.5rem;
+            }
+            .sidebar {
+                padding: 1rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column; /* Stack sidebar and main content */
+            }
+
+            .sidebar {
+                width: 100%;
+                border-right: none;
+                border-bottom: 1px solid var(--current-border);
+                padding: 1rem;
+                flex-direction: row; /* Make sidebar items horizontal */
+                justify-content: space-around;
+                flex-wrap: wrap;
+                height: auto; /* Allow sidebar to take natural height */
+                overflow-y: visible; /* Disable scrolling for horizontal layout */
+            }
+
+            .sidebar h3 {
+                display: none; /* Hide sidebar title on small screens */
+            }
+
+            .sidebar nav ul {
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 0.5rem;
+                width: 100%; /* Ensure ul takes full width */
+            }
+
+            .sidebar nav ul li {
+                margin-bottom: 0;
+            }
+
+            .sidebar nav ul li a {
+                padding: 0.4rem 0.7rem;
+                font-size: 0.9rem;
+                text-align: center;
+            }
+
+            .dashboard-grid {
+                padding: 1rem;
+                grid-template-columns: 1fr; /* Single column on small screens */
+            }
+
+            .header {
+                padding: 1rem;
+                flex-direction: column;
+                align-items: flex-start; /* Align items to start when stacked */
+                gap: 0.5rem;
+            }
+
+            .header h1 {
+                font-size: 1.5rem;
+                width: 100%; /* Take full width */
+                text-align: center;
+            }
+
+            .header-actions {
+                width: 100%; /* Take full width */
+                justify-content: center; /* Center actions */
+            }
+
+            .modal-content {
+                width: 95%;
+                padding: 1rem;
+            }
+
+            .pipeline-monitor .pipeline-stages .stage {
+                flex-basis: calc(50% - 0.25rem); /* Two columns for stages */
+                min-width: unset; /* Remove min-width to allow flex-basis to work */
+            }
+            .cloud-resources .chart-controls button,
+            .cloud-resources .chart-controls select {
+                flex-basis: calc(50% - 0.25rem); /* Two columns for controls */
+                min-width: unset;
+            }
+            .devops-tips .tool-links a {
+                flex-basis: calc(50% - 0.4rem); /* Two columns for tools */
+                max-width: unset;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header {
+                padding: 0.8rem;
+            }
+            .header h1 {
+                font-size: 1.3rem;
+            }
+            .dashboard-grid {
+                padding: 0.8rem;
+            }
+            .card {
+                padding: 1rem;
+            }
+            .card h2 {
+                font-size: 1.3rem;
+            }
+            .pipeline-monitor .stage {
+                min-width: 80px;
+                padding: 0.6rem;
+                font-size: 0.8rem;
+            }
+            .incident-alerts .alert-item {
+                font-size: 0.85rem;
+                padding: 0.6rem;
+            }
+            .metrics-cards .metric-value {
+                font-size: 1rem;
+            }
+            .devops-tips .tool-links a {
+                padding: 0.4rem 0.8rem;
+                font-size: 0.8rem;
+            }
+            .log-feed {
+                font-size: 0.85rem;
+                height: 200px;
+            }
+            .cheatsheet .accordion-content pre {
+                font-size: 0.75rem;
+            }
+            .pipeline-monitor .pipeline-stages .stage,
+            .cloud-resources .chart-controls button,
+            .cloud-resources .chart-controls select,
+            .devops-tips .tool-links a {
+                flex-basis: 100%; /* Single column for very small screens */
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header Section -->
+        <header class="header">
+            <h1>DevOpsBoard</h1>
+            <div class="header-actions">
+                <div class="alert-bell" id="alertBell">🔔</div>
+                <div class="mode-toggle">
+                    <button id="themeToggle">Toggle Night Watch</button>
+                </div>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <!-- Sidebar Navigation -->
+            <aside class="sidebar">
+                <h3>Navigation</h3>
+                <nav>
+                    <ul>
+                        <li><a href="#ci-cd-monitor" class="active">CI/CD Monitor</a></li>
+                        <li><a href="#incident-alerts">Incidents</a></li>
+                        <li><a href="#cloud-resources">Cloud Overview</a></li>
+                        <li><a href="#deployments">Deployments</a></li>
+                        <li><a href="#metrics">Metrics</a></li>
+                        <li><a href="#log-feed">Log Feed</a></li>
+                        <li><a href="#devops-tips">Tips & Tools</a></li>
+                        <li><a href="#activity-feed">Team Activity</a></li>
+                        <li><a href="#knowledge-base">Knowledge Base</a></li>
+                        <li><a href="#cheatsheet">Cheatsheet</a></li>
+                        <li><a href="#test-coverage">Test Coverage</a></li>
+                    </ul>
+                </nav>
+            </aside>
+
+            <!-- Main Dashboard Grid -->
+            <main class="dashboard-grid" id="dashboardGrid">
+                <!-- CI/CD Pipeline Monitor -->
+                <section id="ci-cd-monitor" class="card pipeline-monitor" draggable="true">
+                    <h2>CI/CD Pipeline Monitor</h2>
+                    <div class="pipeline-group">
+                        <h3>Frontend Pipeline</h3>
+                        <div class="pipeline-stages" id="fe-pipeline">
+                            <div id="fe-build" class="stage">Build<div class="stage-tooltip">Latest Commit: #abc1234<br>Branch: main<br>Duration: 2m 3s</div></div>
+                            <div id="fe-test" class="stage">Test<div class="stage-tooltip">Latest Commit: #abc1234<br>Branch: main<br>Duration: 2m 3s</div></div>
+                            <div id="fe-deploy" class="stage">Deploy<div class="stage-tooltip">Latest Commit: #abc1234<br>Branch: main<br>Duration: 2m 3s</div></div>
+                            <div id="fe-notify" class="stage">Notify<div class="stage-tooltip">Latest Commit: #abc1234<br>Branch: main<br>Duration: 2m 3s</div></div>
+                        </div>
+                    </div>
+                    <div class="pipeline-group">
+                        <h3>Backend Pipeline</h3>
+                        <div class="pipeline-stages" id="be-pipeline">
+                            <div id="be-build" class="stage">Build<div class="stage-tooltip">Latest Commit: #def5678<br>Branch: develop<br>Duration: 3m 10s</div></div>
+                            <div id="be-test" class="stage">Test<div class="stage-tooltip">Latest Commit: #def5678<br>Branch: develop<br>Duration: 3m 10s</div></div>
+                            <div id="be-deploy" class="stage">Deploy<div class="stage-tooltip">Latest Commit: #def5678<br>Branch: develop<br>Duration: 3m 10s</div></div>
+                            <div id="be-notify" class="stage">Notify<div class="stage-tooltip">Latest Commit: #def5678<br>Branch: develop<br>Duration: 3m 10s</div></div>
+                        </div>
+                    </div>
+                    <div class="pipeline-group">
+                        <h3>Infra Pipeline</h3>
+                        <div class="pipeline-stages" id="infra-pipeline">
+                            <div id="infra-build" class="stage">Plan<div class="stage-tooltip">Latest Commit: #ghi9012<br>Branch: infra-main<br>Duration: 1m 50s</div></div>
+                            <div id="infra-test" class="stage">Apply<div class="stage-tooltip">Latest Commit: #ghi9012<br>Branch: infra-main<br>Duration: 1m 50s</div></div>
+                            <div id="infra-deploy" class="stage">Verify<div class="stage-tooltip">Latest Commit: #ghi9012<br>Branch: infra-main<br>Duration: 1m 50s</div></div>
+                            <div id="infra-notify" class="stage">Notify<div class="stage-tooltip">Latest Commit: #ghi9012<br>Branch: infra-main<br>Duration: 1m 50s</div></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Incident Alert Board -->
+                <section id="incident-alerts" class="card incident-alerts" draggable="true">
+                    <h2>Incident & Alert Center</h2>
+                    <div class="alert-filters">
+                        <button class="filter-btn active" data-filter="all">All</button>
+                        <button class="filter-btn" data-filter="high">Critical</button>
+                        <button class="filter-btn" data-filter="medium">Major</button>
+                        <button class="filter-btn" data-filter="low">Minor</button>
+                    </div>
+                    <div class="alert-list" id="alert-list">
+                        <!-- Alerts will be dynamically added here -->
+                    </div>
+                </section>
+
+                <!-- Cloud Resource Usage & Cost Tracker -->
+                <section id="cloud-resources" class="card cloud-resources" draggable="true">
+                    <h2>Cloud Resource Usage & Cost Tracker</h2>
+                    <div class="chart-controls">
+                        <select id="cloudProviderSelect">
+                            <option value="AWS">AWS</option>
+                            <option value="Azure">Azure</option>
+                            <option value="GCP">GCP</option>
+                        </select>
+                        <button class="chart-type-btn active" data-type="doughnut">Usage</button>
+                        <button class="chart-type-btn" data-type="bar">Cost</button>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="resourceUsageChart"></canvas>
+                    </div>
+                    <div class="cost-summary" id="costSummary">
+                        Monthly Cost: $1,234.56 (75% Budget Used)
+                    </div>
+                </section>
+
+                <!-- Upcoming Deployments Calendar -->
+                <section id="deployments" class="card deployment-calendar" draggable="true">
+                    <h2>Release Calendar</h2>
+                    <div class="calendar-grid" id="calendar-grid">
+                        <div class="calendar-header">July 2025</div>
+                        <div class="day-name">Sun</div>
+                        <div class="day-name">Mon</div>
+                        <div class="day-name">Tue</div>
+                        <div class="day-name">Wed</div>
+                        <div class="day-name">Thu</div>
+                        <div class="day-name">Fri</div>
+                        <div class="day-name">Sat</div>
+                        <!-- Calendar days will be dynamically added here -->
+                    </div>
+                </section>
+
+                <!-- Metrics Cards -->
+                <section id="metrics" class="card metrics-cards" draggable="true">
+                    <h2>DevOps Metrics Panel</h2>
+                    <div class="metric-item">
+                        <span class="metric-label">Uptime</span>
+                        <span class="metric-value" id="uptime-value">99.95%</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">MTTR (Mean Time To Recovery)</span>
+                        <span class="metric-value" id="mttr-value">32 mins</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Change Failure Rate</span>
+                        <span class="metric-value" id="cfr-value">5%</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Deployment Frequency</span>
+                        <span class="metric-value" id="deployment-freq-value">5/day</span>
+                    </div>
+                </section>
+
+                <!-- Live Terminal Logs Feed -->
+                <section id="log-feed" class="card" draggable="true">
+                    <h2>Live Terminal Logs Feed</h2>
+                    <pre class="log-feed" id="log-output"></pre>
+                </section>
+
+                <!-- DevOps Tips & Tools Panel -->
+                <section id="devops-tips" class="card devops-tips" draggable="true">
+                    <h2>DevOps Tips & Tools</h2>
+                    <div class="tip-display" id="devops-tip">
+                        "Automate everything that can be automated."
+                    </div>
+                    <div class="tool-links">
+                        <a href="https://www.docker.com/" target="_blank">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-docker"><path d="M2.2 10A2.2 2.2 0 0 0 4.4 7.8H9.6a2.2 2.2 0 0 0 2.2-2.2V2.2A2.2 2.2 0 0 0 9.6 0H4.4A2.2 2.2 0 0 0 2.2 2.2Z"/><path d="M2.2 14.8A2.2 2.2 0 0 0 4.4 12.6H9.6a2.2 2.2 0 0 0 2.2-2.2V5.2"/><path d="M7.8 21.8A2.2 2.2 0 0 0 10 19.6H15.2a2.2 2.2 0 0 0 2.2-2.2V12.2"/><path d="M12.2 21.8A2.2 2.2 0 0 0 14.4 19.6H19.6a2.2 2.2 0 0 0 2.2-2.2V12.2A2.2 2.2 0 0 0 19.6 10H14.4a2.2 2.2 0 0 0-2.2 2.2Z"/></svg>
+                            Docker
+                        </a>
+                        <a href="https://www.terraform.io/" target="_blank">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-cloud"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
+                            Terraform
+                        </a>
+                        <a href="https://kubernetes.io/" target="_blank">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-container"><path d="M22 7.5V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v1.5"/><path d="M2 17.5V18a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-1.5"/><path d="M12 12h6"/><path d="M12 7v10"/></svg>
+                            Kubernetes
+                        </a>
+                        <a href="https://aws.amazon.com/console/" target="_blank">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-cloud"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
+                            AWS Console
+                        </a>
+                    </div>
+                </section>
+
+                <!-- Team Activity Feed -->
+                <section id="activity-feed" class="card activity-feed" draggable="true">
+                    <h2>Team Activity Feed</h2>
+                    <div id="activity-list">
+                        <!-- Activities will be dynamically added here -->
+                    </div>
+                </section>
+
+                <!-- Knowledge Base Quick Links -->
+                <section id="knowledge-base" class="card knowledge-base" draggable="true">
+                    <h2>Knowledge Base Quick Links</h2>
+                    <div class="tag-filters" id="kb-tag-filters">
+                        <button class="kb-filter-btn active" data-tag="all">All</button>
+                        <button class="kb-filter-btn" data-tag="kubernetes">Kubernetes</button>
+                        <button class="kb-filter-btn" data-tag="monitoring">Monitoring</button>
+                        <button class="kb-filter-btn" data-tag="security">Security</button>
+                        <button class="kb-filter-btn" data-tag="onboarding">Onboarding</button>
+                    </div>
+                    <div class="link-list" id="kb-link-list">
+                        <!-- Links will be dynamically added here -->
+                    </div>
+                </section>
+
+                <!-- Command Cheatsheet Panel -->
+                <section id="cheatsheet" class="card cheatsheet" draggable="true">
+                    <h2>Command Cheatsheet</h2>
+                    <div class="accordion-item">
+                        <div class="accordion-header">
+                            AWS CLI Commands
+                            <span>&#9660;</span>
+                        </div>
+                        <div class="accordion-content">
+                            <pre><code>aws s3 ls
+aws ec2 describe-instances --instance-ids i-0abcdef1234567890
+aws lambda invoke --function-name my-function --payload '{}' output.txt</code></pre>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <div class="accordion-header">
+                            Git Troubleshooting
+                            <span>&#9660;</span>
+                        </div>
+                        <div class="accordion-content">
+                            <pre><code>git reflog
+git reset --hard HEAD~1
+git stash save "WIP"
+git cherry-pick &lt;commit-hash&gt;</code></pre>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <div class="accordion-header">
+                            Kubectl Snippets
+                            <span>&#9660;</span>
+                        </div>
+                        <div class="accordion-content">
+                            <pre><code>kubectl get pods -n kube-system
+kubectl logs &lt;pod-name&gt; -f
+kubectl describe pod &lt;pod-name&gt;
+kubectl apply -f deployment.yaml</code></pre>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <div class="accordion-header">
+                            Docker Commands
+                            <span>&#9660;</span>
+                        </div>
+                        <div class="accordion-content">
+                            <pre><code>docker ps -a
+docker images
+docker build -t my-app .
+docker run -p 8080:80 my-app</code></pre>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Test Coverage Snapshot -->
+                <section id="test-coverage" class="card test-coverage" draggable="true">
+                    <h2>Test Coverage Snapshot</h2>
+                    <div class="coverage-item">
+                        <div class="coverage-circle" style="--percentage: 83%;"><span>83%</span></div>
+                        <div class="coverage-details">
+                            <div class="label">Frontend</div>
+                            <div class="change increase">↑ 2% from last week</div>
+                        </div>
+                    </div>
+                    <div class="coverage-item">
+                        <div class="coverage-circle" style="--percentage: 72%;"><span>72%</span></div>
+                        <div class="coverage-details">
+                            <div class="label">Backend</div>
+                            <div class="change decrease">↓ 1% from last week</div>
+                        </div>
+                    </div>
+                    <div class="coverage-item">
+                        <div class="coverage-circle" style="--percentage: 91%;"><span>91%</span></div>
+                        <div class="coverage-details">
+                            <div class="label">Infra Scripts</div>
+                            <div class="change increase">↑ 3% from last week</div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <!-- Incident Detail Modal -->
+    <div id="incidentModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h3 id="modalIncidentTitle">Incident Details</h3>
+            <p><strong>Severity:</strong> <span id="modalIncidentSeverity"></span></p>
+            <p><strong>Message:</strong> <span id="modalIncidentMessage"></span></p>
+            <p><strong>Time:</strong> <span id="modalIncidentTime"></span></p>
+            <p><strong>Report:</strong> <span id="modalIncidentReport"></span></p>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const themeToggle = document.getElementById('themeToggle');
+            const body = document.body;
+            const logOutput = document.getElementById('log-output');
+            const alertList = document.getElementById('alert-list');
+            const alertBell = document.getElementById('alertBell');
+            const calendarGrid = document.getElementById('calendar-grid');
+            const devopsTipDisplay = document.getElementById('devops-tip');
+            const uptimeValue = document.getElementById('uptime-value');
+            const mttrValue = document.getElementById('mttr-value');
+            const cfrValue = document.getElementById('cfr-value');
+            const deploymentFreqValue = document.getElementById('deployment-freq-value');
+            const costSummary = document.getElementById('costSummary');
+            const sidebarLinks = document.querySelectorAll('.sidebar nav ul li a');
+            const dashboardGrid = document.getElementById('dashboardGrid');
+
+            // Incident Modal Elements
+            const incidentModal = document.getElementById('incidentModal');
+            const closeButton = document.querySelector('.close-button');
+            const modalIncidentTitle = document.getElementById('modalIncidentTitle');
+            const modalIncidentSeverity = document.getElementById('modalIncidentSeverity');
+            const modalIncidentMessage = document.getElementById('modalIncidentMessage');
+            const modalIncidentTime = document.getElementById('modalIncidentTime');
+            const modalIncidentReport = document.getElementById('modalIncidentReport');
+
+            // --- Theme Toggle ---
+            let isLightMode = false;
+            themeToggle.addEventListener('click', () => {
+                isLightMode = !isLightMode;
+                body.classList.toggle('light-mode', isLightMode);
+                themeToggle.textContent = isLightMode ? 'Toggle Night Watch' : 'Toggle Day Ops';
+                if (resourceUsageChart) {
+                    updateChartColors();
+                }
+            });
+
+            // --- Sidebar Active Link ---
+            sidebarLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    sidebarLinks.forEach(l => l.classList.remove('active'));
+                    this.classList.add('active');
+                });
+            });
+
+            // --- CI/CD Pipeline Monitor Simulation ---
+            const pipelines = {
+                'fe-pipeline': {
+                    name: 'Frontend',
+                    stages: ['build', 'test', 'deploy', 'notify'],
+                    elements: {
+                        build: document.getElementById('fe-build'),
+                        test: document.getElementById('fe-test'),
+                        deploy: document.getElementById('fe-deploy'),
+                        notify: document.getElementById('fe-notify')
+                    },
+                    currentStatus: 0, // 0: build, 1: test, 2: deploy, 3: notify
+                    statusHistory: [],
+                    commit: 'abc1234',
+                    branch: 'main',
+                    duration: '2m 3s'
+                },
+                'be-pipeline': {
+                    name: 'Backend',
+                    stages: ['build', 'test', 'deploy', 'notify'],
+                    elements: {
+                        build: document.getElementById('be-build'),
+                        test: document.getElementById('be-test'),
+                        deploy: document.getElementById('be-deploy'),
+                        notify: document.getElementById('be-notify')
+                    },
+                    currentStatus: 0,
+                    statusHistory: [],
+                    commit: 'def5678',
+                    branch: 'develop',
+                    duration: '3m 10s'
+                },
+                'infra-pipeline': {
+                    name: 'Infra',
+                    stages: ['plan', 'apply', 'verify', 'notify'],
+                    elements: {
+                        build: document.getElementById('infra-build'), // 'build' maps to 'plan' visually
+                        test: document.getElementById('infra-test'),   // 'test' maps to 'apply'
+                        deploy: document.getElementById('infra-deploy'), // 'deploy' maps to 'verify'
+                        notify: document.getElementById('infra-notify')
+                    },
+                    currentStatus: 0,
+                    statusHistory: [],
+                    commit: 'ghi9012',
+                    branch: 'infra-main',
+                    duration: '1m 50s'
+                }
+            };
+
+            function updateSinglePipeline(pipelineId) {
+                const pipeline = pipelines[pipelineId];
+                const stageNames = ['build', 'test', 'deploy', 'notify']; // Generic names for element access
+
+                // Reset all stages for this pipeline
+                stageNames.forEach(stageName => {
+                    const el = pipeline.elements[stageName];
+                    if (el) {
+                        el.classList.remove('in-progress', 'successful', 'failed');
+                    }
+                });
+
+                // Apply status based on currentPipelineStatus
+                switch (pipeline.currentStatus) {
+                    case 0: // First stage in progress
+                        pipeline.elements[stageNames[0]].classList.add('in-progress');
+                        break;
+                    case 1: // First successful, second in progress
+                        pipeline.elements[stageNames[0]].classList.add('successful');
+                        pipeline.elements[stageNames[1]].classList.add('in-progress');
+                        break;
+                    case 2: // Second successful, third in progress
+                        pipeline.elements[stageNames[0]].classList.add('successful');
+                        pipeline.elements[stageNames[1]].classList.add('successful');
+                        pipeline.elements[stageNames[2]].classList.add('in-progress');
+                        break;
+                    case 3: // Third successful, fourth in progress
+                        pipeline.elements[stageNames[0]].classList.add('successful');
+                        pipeline.elements[stageNames[1]].classList.add('successful');
+                        pipeline.elements[stageNames[2]].classList.add('successful');
+                        pipeline.elements[stageNames[3]].classList.add('in-progress');
+                        break;
+                    case 4: // Final stage successful or failed
+                        pipeline.elements[stageNames[0]].classList.add('successful');
+                        pipeline.elements[stageNames[1]].classList.add('successful');
+                        pipeline.elements[stageNames[2]].classList.add('successful');
+                        const isSuccess = Math.random() > 0.2; // 80% success rate
+                        pipeline.elements[stageNames[3]].classList.add(isSuccess ? 'successful' : 'failed');
+
+                        if (!isSuccess) {
+                            addIncidentAlert('High', `${pipeline.name} Pipeline failed at ${pipeline.stages[3]} stage.`);
+                            confettiAnimation(false); // No confetti on failure
+                        } else {
+                            confettiAnimation(true); // Confetti on success
+                            addActivityEntry(`${pipeline.name} pipeline completed successfully.`);
+                        }
+                        break;
+                }
+
+                pipeline.currentStatus = (pipeline.currentStatus + 1) % 5; // Cycle through 0, 1, 2, 3, 4
+                if (pipeline.currentStatus === 0) { // If reset, wait a bit longer before starting new cycle
+                    setTimeout(() => updateSinglePipeline(pipelineId), 5000 + Math.random() * 2000); // Longer pause before new pipeline run
+                } else {
+                    setTimeout(() => updateSinglePipeline(pipelineId), 1500 + Math.random() * 500); // Move to next stage faster
+                }
+            }
+
+            // Initialize all pipelines
+            for (const id in pipelines) {
+                updateSinglePipeline(id);
+            }
+
+            // --- Incident Alert Board Simulation ---
+            const fakeIncidents = [
+                { severity: 'High', message: 'Database connection error in Prod.', report: 'Service X DB connection pool exhausted. Root cause: high traffic spike. Mitigated by scaling DB instances.' },
+                { severity: 'Medium', message: 'High latency detected in API Gateway.', report: 'API Gateway latencies spiked for region US-East-1. Investigated and found misconfigured caching rules. Resolved by updating cache settings.' },
+                { severity: 'Low', message: 'Minor log parsing issue on dev server.', report: 'Logstash parsing error for new log format. Updated Logstash config and restarted service. No data loss.' },
+                { severity: 'High', message: 'Critical service outage in EU-West-1.', report: 'Core service Y went down due to misconfiguration during deployment. Rolled back to previous version. Full post-mortem to follow.' },
+                { severity: 'Medium', message: 'Disk space warning on staging server.', report: 'Staging server /var/log partition reached 90% capacity. Cleared old logs and increased disk size. Monitoring for recurrence.' },
+                { severity: 'Low', message: 'Non-critical error in background job.', report: 'Batch job Z failed to process 3 records due to malformed input. Retried successfully after manual data correction.' }
+            ];
+
+            function addIncidentAlert(severity, message) {
+                const alertItem = document.createElement('div');
+                alertItem.classList.add('alert-item', `severity-${severity.toLowerCase()}`);
+                alertItem.dataset.severity = severity.toLowerCase();
+                const timestamp = new Date().toLocaleString();
+                alertItem.innerHTML = `
+                    <span><strong>${severity} Incident:</strong> ${message}</span>
+                `;
+                alertList.prepend(alertItem); // Add to the top
+
+                // Store full incident details for modal
+                const incidentDetails = {
+                    title: `${severity} Incident`,
+                    severity: severity,
+                    message: message,
+                    time: timestamp,
+                    report: fakeIncidents.find(inc => inc.message === message)?.report || 'No detailed report available.'
+                };
+                alertItem.dataset.incident = JSON.stringify(incidentDetails);
+
+                // Play alert sound
+                playAlertSound();
+                // Activate bell animation
+                alertBell.classList.add('active');
+                setTimeout(() => alertBell.classList.remove('active'), 3000); // Deactivate after 3s
+
+                // Auto-dismiss after 10 seconds
+                setTimeout(() => {
+                    alertItem.style.opacity = '0';
+                    setTimeout(() => alertItem.remove(), 500); // Remove after fade out
+                }, 10000);
+
+                // Open modal on click
+                alertItem.addEventListener('click', () => showIncidentModal(incidentDetails));
+
+                // Keep only the latest 5 alerts
+                while (alertList.children.length > 5) {
+                    alertList.lastChild.remove();
+                }
+            }
+
+            function playAlertSound() {
+                const audio = new Audio('data:audio/wav;base64,UklGRl9vT1NBTyBHZW5lcmF0ZWQgYnkgVG9uZUpTIGh0dHBzOi8vdG9uZS5qcy8gVVJMU1pBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQVBPU1ZBQ0FBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQAAAA==');
+                audio.play();
+            }
+
+            // Initial incidents
+            addIncidentAlert('High', 'Production API unresponsive.');
+            addIncidentAlert('Medium', 'CI/CD pipeline stuck on test stage.');
+            addIncidentAlert('Low', 'Minor caching issue detected.');
+
+            // Simulate new incidents every 20-40 seconds
+            setInterval(() => {
+                const randomIncident = fakeIncidents[Math.floor(Math.random() * fakeIncidents.length)];
+                addIncidentAlert(randomIncident.severity, randomIncident.message);
+            }, Math.random() * (40000 - 20000) + 20000);
+
+            // Incident Filter Buttons
+            document.querySelectorAll('.incident-alerts .filter-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    document.querySelectorAll('.incident-alerts .filter-btn').forEach(btn => btn.classList.remove('active'));
+                    this.classList.add('active');
+                    const filter = this.dataset.filter;
+                    document.querySelectorAll('.alert-item').forEach(item => {
+                        if (filter === 'all' || item.dataset.severity === filter) {
+                            item.style.display = 'flex';
+                        } else {
+                            item.style.display = 'none';
+                        }
+                    });
+                });
+            });
+
+            // Incident Modal Functionality
+            function showIncidentModal(incident) {
+                modalIncidentTitle.textContent = incident.title;
+                modalIncidentSeverity.textContent = incident.severity;
+                modalIncidentMessage.textContent = incident.message;
+                modalIncidentTime.textContent = incident.time;
+                modalIncidentReport.textContent = incident.report;
+                incidentModal.style.display = 'flex'; // Use flex to center
+            }
+
+            closeButton.addEventListener('click', () => {
+                incidentModal.style.display = 'none';
+            });
+
+            window.addEventListener('click', (event) => {
+                if (event.target === incidentModal) {
+                    incidentModal.style.display = 'none';
+                }
+            });
+
+
+            // --- Cloud Resource Usage & Cost Tracker (Chart.js) ---
+            const ctx = document.getElementById('resourceUsageChart').getContext('2d');
+            let resourceUsageChart;
+            let currentChartType = 'doughnut'; // 'doughnut' or 'bar'
+            let currentCloudProvider = 'AWS';
+
+            const cloudData = {
+                AWS: {
+                    usage: { labels: ['EC2', 'Lambda', 'S3', 'RDS', 'VPC'], data: [30, 25, 20, 15, 10] },
+                    cost: { labels: ['EC2', 'Lambda', 'S3', 'RDS', 'VPC'], data: [500, 350, 200, 150, 100] },
+                    budget: 1500
+                },
+                Azure: {
+                    usage: { labels: ['VMs', 'Functions', 'Blob', 'SQL DB', 'VNet'], data: [35, 20, 18, 17, 10] },
+                    cost: { labels: ['VMs', 'Functions', 'Blob', 'SQL DB', 'VNet'], data: [550, 300, 180, 160, 90] },
+                    budget: 1600
+                },
+                GCP: {
+                    usage: { labels: ['Compute', 'Functions', 'Storage', 'Cloud SQL', 'VPC'], data: [28, 22, 25, 15, 10] },
+                    cost: { labels: ['Compute', 'Functions', 'Storage', 'Cloud SQL', 'VPC'], data: [480, 320, 220, 140, 80] },
+                    budget: 1400
+                }
+            };
+
+            function getChartColors() {
+                const isLight = body.classList.contains('light-mode');
+                return {
+                    fontColor: isLight ? '#333' : '#e0e0e0',
+                    gridColor: isLight ? '#e0e0e0' : '#3a3a5a',
+                    borderColor: isLight ? '#e0e0e0' : '#3a3a5a',
+                    tooltipBg: isLight ? '#ffffff' : '#2c2c44',
+                    tooltipBorder: isLight ? '#ccc' : '#5a5a7a',
+                    tooltipText: isLight ? '#333' : '#e0e0e0',
+                    datasets: [
+                        '#0f4c75', // Primary Blue
+                        '#e6b31e', // Accent Yellow
+                        '#28a745', // Success Green
+                        '#dc3545', // Danger Red
+                        '#17a2b8'  // Info Cyan
+                    ]
+                };
+            }
+
+            function createOrUpdateChart() {
+                const colors = getChartColors();
+                const currentData = cloudData[currentCloudProvider];
+                let labels, chartData, tooltipLabelCallback;
+
+                if (currentChartType === 'doughnut') {
+                    labels = currentData.usage.labels;
+                    chartData = currentData.usage.data;
+                    tooltipLabelCallback = function(context) {
+                        let label = context.label || '';
+                        if (label) { label += ': '; }
+                        if (context.parsed !== null) { label += context.parsed.toFixed(1) + '%'; } // Ensure percentage is formatted
+                        return label;
+                    };
+                } else { // bar chart for cost
+                    labels = currentData.cost.labels;
+                    chartData = currentData.cost.data;
+                    tooltipLabelCallback = function(context) {
+                        let label = context.label || '';
+                        if (label) { label += ': '; }
+                        if (context.parsed !== null) { label += '$' + context.parsed.toFixed(2); }
+                        return label;
+                    };
+                }
+
+                const data = {
+                    labels: labels,
+                    datasets: [{
+                        data: chartData,
+                        backgroundColor: colors.datasets,
+                        borderColor: colors.borderColor,
+                        borderWidth: 1
+                    }]
+                };
+
+                const options = {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: currentChartType === 'doughnut' ? '70%' : 0,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: colors.fontColor,
+                                font: { size: 14, family: 'Inter' }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: colors.tooltipBg,
+                            borderColor: colors.tooltipBorder,
+                            borderWidth: 1,
+                            titleColor: colors.tooltipText,
+                            bodyColor: colors.tooltipText,
+                            callbacks: {
+                                label: tooltipLabelCallback
+                            }
+                        }
+                    },
+                    scales: currentChartType === 'bar' ? {
+                        x: {
+                            ticks: { color: colors.fontColor },
+                            grid: { color: colors.gridColor }
+                        },
+                        y: {
+                            ticks: { color: colors.fontColor },
+                            grid: { color: colors.gridColor }
+                        }
+                    } : {}
+                };
+
+                if (resourceUsageChart) {
+                    resourceUsageChart.destroy(); // Destroy existing chart to change type
+                }
+                resourceUsageChart = new Chart(ctx, {
+                    type: currentChartType,
+                    data: data,
+                    options: options
+                });
+            }
+
+            function updateChartColors() {
+                const colors = getChartColors();
+                if (resourceUsageChart.options.plugins.legend) {
+                    resourceUsageChart.options.plugins.legend.labels.color = colors.fontColor;
+                }
+                resourceUsageChart.options.plugins.tooltip.backgroundColor = colors.tooltipBg;
+                resourceUsageChart.options.plugins.tooltip.borderColor = colors.tooltipBorder;
+                resourceUsageChart.options.plugins.tooltip.titleColor = colors.tooltipText;
+                resourceUsageChart.options.plugins.tooltip.bodyColor = colors.tooltipText;
+                resourceUsageChart.data.datasets[0].backgroundColor = colors.datasets;
+                resourceUsageChart.data.datasets[0].borderColor = colors.borderColor;
+
+                if (resourceUsageChart.options.scales && resourceUsageChart.options.scales.x) {
+                    resourceUsageChart.options.scales.x.ticks.color = colors.fontColor;
+                    resourceUsageChart.options.scales.x.grid.color = colors.gridColor;
+                    resourceUsageChart.options.scales.y.ticks.color = colors.fontColor;
+                    resourceUsageChart.options.scales.y.grid.color = colors.gridColor;
+                }
+                resourceUsageChart.update();
+            }
+
+            createOrUpdateChart(); // Initial chart creation
+
+            // Chart type and provider controls
+            document.querySelectorAll('.cloud-resources .chart-type-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    document.querySelectorAll('.cloud-resources .chart-type-btn').forEach(btn => btn.classList.remove('active'));
+                    this.classList.add('active');
+                    currentChartType = this.dataset.type;
+                    createOrUpdateChart();
+                });
+            });
+
+            document.getElementById('cloudProviderSelect').addEventListener('change', function() {
+                currentCloudProvider = this.value;
+                createOrUpdateChart();
+            });
+
+            // Simulate cost and usage updates
+            let currentCost = 1234.56;
+            let budgetUsed = 75;
+            setInterval(() => {
+                currentCost += Math.random() * 50 - 25; // Fluctuate cost
+                budgetUsed += Math.random() * 2 - 1; // Fluctuate budget
+                currentCost = Math.max(1000, Math.min(2000, currentCost)); // Keep within range
+                budgetUsed = Math.max(60, Math.min(90, budgetUsed)); // Keep within range
+
+                const currentBudget = cloudData[currentCloudProvider].budget;
+                const isOverBudget = currentCost > currentBudget;
+
+                costSummary.textContent = `Monthly Cost: $${currentCost.toFixed(2)} (${(currentCost / currentBudget * 100).toFixed(0)}% Budget Used)`;
+                costSummary.classList.toggle('over-budget', isOverBudget);
+
+                // Update chart data (usage and cost)
+                for (const provider in cloudData) {
+                    cloudData[provider].usage.data = cloudData[provider].usage.data.map(val => Math.max(5, val + (Math.random() * 5 - 2.5)));
+                    const totalUsage = cloudData[provider].usage.data.reduce((sum, val) => sum + val, 0);
+                    cloudData[provider].usage.data = cloudData[provider].usage.data.map(val => (val / totalUsage) * 100);
+
+                    cloudData[provider].cost.data = cloudData[provider].cost.data.map(val => Math.max(50, val + (Math.random() * 20 - 10)));
+                }
+                createOrUpdateChart(); // Re-render chart with updated data
+            }, 5000);
+
+
+            // --- Upcoming Deployments Calendar ---
+            const deployments = {
+                '2025-07-15': [{ env: 'Production', who: 'Alice', what: 'Feature X rollout', changelog: 'Enabled new user dashboard features.' }],
+                '2025-07-18': [{ env: 'Staging', who: 'Bob', what: 'DB schema migration', changelog: 'Added new table for user preferences.' }],
+                '2025-07-22': [{ env: 'Production', who: 'Charlie', what: 'New microservice deployment', changelog: 'Deployed payment processing service v1.0.' }],
+                '2025-07-25': [{ env: 'Production', who: 'Alice', what: 'Security patch deployment', changelog: 'Applied critical security fixes.' }, { env: 'Staging', who: 'David', what: 'Performance testing', changelog: 'Running load tests for Q3 peak traffic.' }],
+                '2025-07-29': [{ env: 'Hotfix', who: 'Eve', what: 'Urgent bug fix', changelog: 'Fixed critical login bug affecting certain users.' }]
+            };
+
+            function renderCalendar() {
+                const today = new Date();
+                const currentMonth = today.getMonth();
+                const currentYear = today.getFullYear();
+                const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay(); // 0 for Sunday, 6 for Saturday
+                const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+
+                // Clear previous days (keep header)
+                while (calendarGrid.children.length > 7) { // 7 for day names
+                    calendarGrid.removeChild(calendarGrid.lastChild);
+                }
+
+                // Add empty cells for days before the 1st
+                for (let i = 0; i < firstDayOfMonth; i++) {
+                    const emptyCell = document.createElement('div');
+                    emptyCell.classList.add('date-cell', 'empty');
+                    calendarGrid.appendChild(emptyCell);
+                }
+
+                // Add days of the month
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dateCell = document.createElement('div');
+                    dateCell.classList.add('date-cell');
+                    dateCell.textContent = day;
+
+                    const fullDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    if (deployments[fullDate]) {
+                        deployments[fullDate].forEach(dep => {
+                            dateCell.classList.add(dep.env.toLowerCase()); // Add class for color tag
+                        });
+
+                        const tooltip = document.createElement('div');
+                        tooltip.classList.add('deployment-tooltip');
+                        let tooltipContent = '';
+                        deployments[fullDate].forEach(dep => {
+                            tooltipContent += `<strong>${dep.env}</strong>: ${dep.what}<br>Lead: ${dep.who}<br>Changelog: ${dep.changelog}<br><br>`;
+                        });
+                        tooltip.innerHTML = tooltipContent;
+                        dateCell.appendChild(tooltip);
+                    }
+                    calendarGrid.appendChild(dateCell);
+                }
+            }
+            renderCalendar();
+
+
+            // --- Metrics Cards Simulation ---
+            let uptime = 99.95;
+            let mttr = 32;
+            let cfr = 5; // Change Failure Rate
+            let deploymentFreq = 5;
+
+            function animateMetric(element, start, end, unit, duration, isDecimal = false, threshold = null) {
+                let current = start;
+                const range = end - start;
+                const increment = range / (duration / 50); // Update every 50ms
+                let startTime = null;
+
+                function step(timestamp) {
+                    if (!startTime) startTime = timestamp;
+                    const progress = (timestamp - startTime) / duration;
+
+                    if (progress < 1) {
+                        current = start + increment * (timestamp - startTime) / 50;
+                        element.textContent = isDecimal ? current.toFixed(2) + unit : Math.round(current) + unit;
+                        applyMetricColor(element, current, threshold);
+                        requestAnimationFrame(step);
+                    } else {
+                        element.textContent = isDecimal ? end.toFixed(2) + unit : Math.round(end) + unit;
+                        applyMetricColor(element, end, threshold);
+                    }
+                }
+                requestAnimationFrame(step);
+            }
+
+            function applyMetricColor(element, value, threshold) {
+                element.classList.remove('good', 'warning', 'bad');
+                if (threshold) {
+                    if (threshold.type === 'min' && value >= threshold.good) {
+                        element.classList.add('good');
+                    } else if (threshold.type === 'min' && value >= threshold.warning) {
+                        element.classList.add('warning');
+                    } else if (threshold.type === 'max' && value <= threshold.good) {
+                        element.classList.add('good');
+                    } else if (threshold.type === 'max' && value <= threshold.warning) {
+                        element.classList.add('warning');
+                    } else {
+                        element.classList.add('bad');
+                    }
+                }
+            }
+
+            // Define thresholds for metrics
+            const metricThresholds = {
+                uptime: { type: 'min', good: 99.9, warning: 99.5 }, // Uptime should be high
+                mttr: { type: 'max', good: 30, warning: 60 },       // MTTR should be low
+                cfr: { type: 'max', good: 5, warning: 10 },         // CFR should be low
+                deploymentFreq: { type: 'min', good: 3, warning: 1 } // Deployment Freq should be high
+            };
+
+            // Initial values
+            uptimeValue.textContent = `${uptime.toFixed(2)}%`;
+            applyMetricColor(uptimeValue, uptime, metricThresholds.uptime);
+            mttrValue.textContent = `${mttr} mins`;
+            applyMetricColor(mttrValue, mttr, metricThresholds.mttr);
+            cfrValue.textContent = `${cfr}%`;
+            applyMetricColor(cfrValue, cfr, metricThresholds.cfr);
+            deploymentFreqValue.textContent = `${deploymentFreq}/day`;
+            applyMetricColor(deploymentFreqValue, deploymentFreq, metricThresholds.deploymentFreq);
+
+
+            // Simulate fluctuations every 10 seconds
+            setInterval(() => {
+                const newUptime = 99.85 + Math.random() * 0.15; // 99.85 to 100.00
+                const newMttr = Math.floor(Math.random() * 40) + 15; // 15 to 55
+                const newCfr = Math.floor(Math.random() * 8) + 2; // 2 to 10
+                const newDeploymentFreq = Math.floor(Math.random() * 6) + 2; // 2 to 8
+
+                animateMetric(uptimeValue, uptime, newUptime, '%', 1000, true, metricThresholds.uptime);
+                animateMetric(mttrValue, mttr, newMttr, ' mins', 1000, false, metricThresholds.mttr);
+                animateMetric(cfrValue, cfr, newCfr, '%', 1000, false, metricThresholds.cfr);
+                animateMetric(deploymentFreqValue, deploymentFreq, newDeploymentFreq, '/day', 1000, false, metricThresholds.deploymentFreq);
+
+                uptime = newUptime;
+                mttr = newMttr;
+                cfr = newCfr;
+                deploymentFreq = newDeploymentFreq;
+            }, 10000);
+
+
+            // --- DevOps Tips & Tools Panel ---
+            const devopsTips = [
+                "Automate everything that can be automated.",
+                "Infrastructure as Code (IaC) is key for consistency.",
+                "Monitor, alert, and respond. Don't just monitor.",
+                "Shift left: Integrate security early in the pipeline.",
+                "Embrace GitOps for declarative infrastructure.",
+                "Containers provide consistency across environments.",
+                "Observability is more than just monitoring.",
+                "Blameless post-mortems foster a learning culture."
+            ];
+            let currentTipIndex = 0;
+
+            function rotateDevOpsTip() {
+                devopsTipDisplay.style.opacity = '0';
+                setTimeout(() => {
+                    currentTipIndex = (currentTipIndex + 1) % devopsTips.length;
+                    devopsTipDisplay.textContent = devopsTips[currentTipIndex];
+                    devopsTipDisplay.style.opacity = '1';
+                }, 500); // Wait for fade out before changing text
+            }
+            rotateDevOpsTip(); // Display initial tip
+            setInterval(rotateDevOpsTip, 8000); // Rotate every 8 seconds
+
+
+            // --- Terminal-style Log Feed Simulation ---
+            const fakeLogs = [
+                '[INFO] Kubernetes rolling update started for deployment: my-app-v2',
+                '[SUCCESS] Lambda function updated: my-service-v2.1',
+                '[ERROR] Pod crashloop in kube-system: nginx-deployment-xyz. Restarting...',
+                '[WARN] High CPU usage on worker node-03. Scaling up.',
+                '[INFO] Running database migrations on production DB.',
+                '[DEBUG] Cache invalidated for user session 12345. Rebuilding...',
+                '[SUCCESS] CI build #1024 completed in 3m 15s. Artifacts pushed.',
+                '[INFO] Scaling up EC2 instances in Auto Scaling Group: web-tier-asg.',
+                '[ERROR] Failed to connect to external API: Timeout. Retrying in 5s.',
+                '[INFO] Health check passed for all services in US-East-1.',
+                '[WARN] Disk space low on /var/log partition. Initiating cleanup.',
+                '[SUCCESS] Terraform apply completed successfully for new VPC endpoint.',
+                '[INFO] Starting new feature branch deployment: feature/new-dashboard-ui',
+                '[ERROR] Authentication failed for user: deploy-bot. Check credentials.',
+                '[DEBUG] Processing 1000 records from SQS queue: order-processing-queue.',
+                '[SUCCESS] Rollback completed for failed deployment. System stable.',
+                '[INFO] Scheduled maintenance window initiated. Services will be degraded.',
+                '[CRITICAL] Data corruption detected in primary database replica!',
+                '[INFO] New user registered: user@example.com',
+                '[SUCCESS] Security group updated: allow-ssh-from-office'
+            ];
+
+            function addLogEntry() {
+                const randomLog = fakeLogs[Math.floor(Math.random() * fakeLogs.length)];
+                const logLine = document.createElement('div');
+                logLine.textContent = randomLog;
+                logOutput.appendChild(logLine);
+
+                // Scroll to the bottom
+                logOutput.scrollTop = logOutput.scrollHeight;
+
+                // Keep log output from getting too long
+                if (logOutput.children.length > 50) {
+                    logOutput.removeChild(logOutput.firstChild);
+                }
+            }
+
+            // Add initial logs
+            for (let i = 0; i < 10; i++) {
+                addLogEntry();
+            }
+
+            // Simulate real-time logs every 1-3 seconds
+            setInterval(addLogEntry, Math.random() * (3000 - 1000) + 1000);
+
+
+            // --- Team Activity Feed ---
+            const activityList = document.getElementById('activity-list');
+            const fakeActivities = [
+                { user: 'Riya', action: 'merged PR #402 into main', target: 'frontend-repo' },
+                { user: 'Tanvir', action: 'deployed API Gateway to staging', target: 'api-gateway' },
+                { user: 'Sarah', action: 'resolved incident #1234', target: 'Prod DB Issue' },
+                { user: 'John', action: 'updated Terraform module for S3 buckets', target: 'infra-repo' },
+                { user: 'Emily', action: 'opened new issue #567 for bug fix', target: 'backend-service' },
+                { user: 'Mike', action: 'reviewed pull request #405', target: 'frontend-repo' },
+                { user: 'Alice', action: 'started new CI build for feature branch', target: 'backend-service' }
+            ];
+
+            function addActivityEntry(activityText = null) {
+                const item = document.createElement('div');
+                item.classList.add('activity-item');
+                if (activityText) {
+                    item.innerHTML = activityText;
+                } else {
+                    const randomActivity = fakeActivities[Math.floor(Math.random() * fakeActivities.length)];
+                    item.innerHTML = `<strong>${randomActivity.user}</strong> ${randomActivity.action} on <em>${randomActivity.target}</em>`;
+                }
+                activityList.prepend(item);
+
+                // Keep only the latest 10 activities
+                while (activityList.children.length > 10) {
+                    activityList.lastChild.remove();
+                }
+            }
+            // Initial activities
+            for (let i = 0; i < 5; i++) {
+                addActivityEntry();
+            }
+            setInterval(addActivityEntry, 7000 + Math.random() * 3000); // New activity every 7-10 seconds
+
+
+            // --- Knowledge Base Quick Links ---
+            const kbLinkList = document.getElementById('kb-link-list');
+            const kbTagFilters = document.getElementById('kb-tag-filters');
+            const knowledgeBaseLinks = [
+                { title: 'Restarting Redis Cluster', url: '#', tags: ['kubernetes', 'monitoring', 'runbook'] },
+                { title: 'Onboarding Guide for New DevOps Engineers', url: '#', tags: ['onboarding', 'documentation'] },
+                { title: 'Git Branching Strategy & PR Workflow', url: '#', tags: ['git', 'workflow'] },
+                { title: 'Monitoring Dashboards Overview (Grafana)', url: '#', tags: ['monitoring', 'grafana'] },
+                { title: 'Kubernetes Deployment Best Practices', url: '#', tags: ['kubernetes', 'deployment'] },
+                { title: 'AWS IAM Role Management', url: '#', tags: ['aws', 'security'] },
+                { title: 'Troubleshooting Common CI/CD Failures', url: '#', tags: ['ci/cd', 'troubleshooting'] },
+                { title: 'Incident Response Playbook', url: '#', tags: ['security', 'runbook', 'incident'] }
+            ];
+
+            function renderKnowledgeBase(filterTag = 'all') {
+                kbLinkList.innerHTML = ''; // Clear existing
+                knowledgeBaseLinks.forEach(link => {
+                    if (filterTag === 'all' || link.tags.includes(filterTag)) {
+                        const a = document.createElement('a');
+                        a.href = link.url;
+                        a.textContent = link.title;
+                        const tagsSpan = document.createElement('span');
+                        tagsSpan.classList.add('tags');
+                        tagsSpan.textContent = ` [${link.tags.join(', ')}]`;
+                        a.appendChild(tagsSpan);
+                        kbLinkList.appendChild(a);
+                    }
+                });
+            }
+            renderKnowledgeBase(); // Initial render
+
+            kbTagFilters.querySelectorAll('.kb-filter-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    kbTagFilters.querySelectorAll('.kb-filter-btn').forEach(btn => btn.classList.remove('active'));
+                    this.classList.add('active');
+                    renderKnowledgeBase(this.dataset.tag);
+                });
+            });
+
+
+            // --- Command Cheatsheet Panel (Accordion) ---
+            document.querySelectorAll('.cheatsheet .accordion-header').forEach(header => {
+                header.addEventListener('click', function() {
+                    const content = this.nextElementSibling;
+                    const isActive = content.classList.contains('active');
+
+                    // Close all other open accordions
+                    document.querySelectorAll('.cheatsheet .accordion-content.active').forEach(openContent => {
+                        if (openContent !== content) {
+                            openContent.classList.remove('active');
+                            openContent.style.maxHeight = '0';
+                            openContent.style.padding = '0 1rem'; /* Collapse padding */
+                        }
+                    });
+
+                    // Toggle current accordion
+                    if (isActive) {
+                        content.classList.remove('active');
+                        content.style.maxHeight = '0';
+                        content.style.padding = '0 1rem'; /* Collapse padding */
+                    } else {
+                        content.classList.add('active');
+                        content.style.maxHeight = content.scrollHeight + 'px'; // Set max-height for smooth transition
+                        content.style.padding = '1rem'; /* Restore padding */
+                    }
+                });
+            });
+
+            // --- Confetti Animation (Simple CSS based) ---
+            function confettiAnimation(isSuccess) {
+                if (!isSuccess) return;
+
+                const confettiContainer = document.createElement('div');
+                confettiContainer.style.position = 'fixed';
+                confettiContainer.style.top = '0';
+                confettiContainer.style.left = '0';
+                confettiContainer.style.width = '100vw';
+                confettiContainer.style.height = '100vh';
+                confettiContainer.style.pointerEvents = 'none';
+                confettiContainer.style.overflow = 'hidden';
+                confettiContainer.style.zIndex = '9999';
+                document.body.appendChild(confettiContainer);
+
+                for (let i = 0; i < 50; i++) {
+                    const confetti = document.createElement('div');
+                    confetti.style.position = 'absolute';
+                    confetti.style.width = '10px';
+                    confetti.style.height = '10px';
+                    confetti.style.backgroundColor = `hsl(${Math.random() * 360}, 100%, 50%)`;
+                    confetti.style.left = `${Math.random() * 100}vw`;
+                    confetti.style.top = `${Math.random() * -20}px`;
+                    confetti.style.opacity = '0';
+                    confetti.style.transform = `rotate(${Math.random() * 360}deg)`;
+                    confetti.style.animation = `confetti-fall ${Math.random() * 2 + 3}s ease-out forwards`;
+                    confetti.style.animationDelay = `${Math.random() * 0.5}s`;
+                    confettiContainer.appendChild(confetti);
+                }
+
+                const styleSheet = document.createElement('style');
+                styleSheet.type = 'text/css';
+                styleSheet.innerText = `
+                    @keyframes confetti-fall {
+                        0% { opacity: 1; transform: translateY(0) rotate(0deg); }
+                        100% { opacity: 0; transform: translateY(100vh) rotate(720deg); }
+                    }
+                `;
+                document.head.appendChild(styleSheet);
+
+                setTimeout(() => {
+                    confettiContainer.remove();
+                    styleSheet.remove();
+                }, 5000);
+            }
+
+
+            // --- Drag and Drop Widget Layout ---
+            let draggedItem = null;
+
+            // Load saved order from localStorage
+            function loadWidgetOrder() {
+                const savedOrder = localStorage.getItem('devopsBoardWidgetOrder');
+                if (savedOrder) {
+                    const order = JSON.parse(savedOrder);
+                    const fragment = document.createDocumentFragment();
+                    order.forEach(id => {
+                        const card = document.getElementById(id);
+                        if (card) {
+                            fragment.appendChild(card);
+                        }
+                    });
+                    dashboardGrid.appendChild(fragment);
+                }
+            }
+
+            // Save current order to localStorage
+            function saveWidgetOrder() {
+                const currentOrder = Array.from(dashboardGrid.children).map(card => card.id);
+                localStorage.setItem('devopsBoardWidgetOrder', JSON.stringify(currentOrder));
+            }
+
+            // Add event listeners for draggable cards
+            document.querySelectorAll('.card').forEach(card => {
+                card.addEventListener('dragstart', (e) => {
+                    draggedItem = card;
+                    setTimeout(() => card.classList.add('dragging'), 0);
+                    e.dataTransfer.effectAllowed = 'move';
+                });
+
+                card.addEventListener('dragend', () => {
+                    draggedItem.classList.remove('dragging');
+                    draggedItem = null;
+                    saveWidgetOrder(); // Save order after drag ends
+                });
+            });
+
+            dashboardGrid.addEventListener('dragover', (e) => {
+                e.preventDefault(); // Allow drop
+                const afterElement = getDragAfterElement(dashboardGrid, e.clientY);
+                const currentDraggable = document.querySelector('.dragging');
+                if (afterElement == null) {
+                    dashboardGrid.appendChild(currentDraggable);
+                } else {
+                    dashboardGrid.insertBefore(currentDraggable, afterElement);
+                }
+            });
+
+            function getDragAfterElement(container, y) {
+                const draggableElements = [...container.querySelectorAll('.card:not(.dragging)')];
+
+                return draggableElements.reduce((closest, child) => {
+                    const box = child.getBoundingClientRect();
+                    const offset = y - box.top - box.height / 2;
+                    if (offset < 0 && offset > closest.offset) {
+                        return { offset: offset, element: child };
+                    } else {
+                        return closest;
+                    }
+                }, { offset: -Infinity }).element;
+            }
+
+            loadWidgetOrder(); // Load order on page load
+        });
+    </script>
+</body>
+</html>
